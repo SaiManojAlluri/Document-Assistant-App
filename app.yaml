@@ -1,0 +1,40 @@
+command:
+  - python
+  - -m
+  - streamlit
+  - run
+  - app.py
+  - --server.port
+  - "8000"
+  - --server.address
+  - "0.0.0.0"
+
+env:
+  - name: DATABRICKS_HOST
+    value: https://adb-7075762271198795.15.azuredatabricks.net/
+  - name: EMBEDDING_ENDPOINT_URL
+    value: https://adb-7075762271198795.15.azuredatabricks.net/serving-endpoints/aoai-embedding/invocations
+  - name: DATABRICKS_WAREHOUSE_ID
+    value: 11f032ac3d976651
+  - name: DATASET_NAME
+    value: System Safety
+  - name: DOC_METADATA_TABLE
+    value: dev.ops_saf_prep.t_doc_metadata
+  - name: DOC_CHUNKS_TABLE
+    value: dev.ops_saf_prep.t_doc_chunks
+  - name: DOC_IMGS_TABLE
+    value: dev.ops_saf_prep.t_doc_imgs
+  - name: DOC_PAGE_IMGS_TABLE
+    value: dev.ops_saf_prep.t_doc_page_imgs
+  - name: DOMAIN
+    value: BNSF railroad operating rules and system safety procedures
+  - name: SME_EVAL_TABLE
+    value: dev.ops_saf_prep.t_sme_evaluations
+  - name: PAGE_TITLE
+    value: BNSF Document Assistant
+  - name: WELCOME_TITLE
+    value: Welcome to the BNSF Rules Assistant
+  - name: WELCOME_SUBTITLE
+    value: Ask a detailed question about rules and operating procedures.
+  - name: CHAT_PLACEHOLDER
+    value: Ask a detailed question about rules…

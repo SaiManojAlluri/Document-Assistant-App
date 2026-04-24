@@ -1,0 +1,5 @@
+streamlit>=1.35
+databricks-sdk>=0.28
+python-dotenv>=1.0
+requests>=2.31
+azure-identity>=1.16
