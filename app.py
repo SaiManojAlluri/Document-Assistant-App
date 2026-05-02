@@ -63,25 +63,74 @@ LLM_MODELS = {
 DEFAULT_MODEL = "Claude Sonnet 4.6"
 
 SYNTHESIS_SYSTEM_PROMPT = (
-    "You are a BNSF railroad expert assistant. "
-    "Answer the user's question using the document excerpts provided below. "
-    "You may reason from what the excerpts clearly imply, not just what they state word-for-word — "
-    "but do not introduce facts that cannot be traced back to the excerpts.\n\n"
-    "Structure your answer as follows:\n"
-    "1. If the excerpts DO NOT contain a relevant answer: state that clearly at the very beginning "
-    "(e.g. 'The available documents do not address this question.'), then provide any partial "
-    "information from the excerpts that may still be useful.\n"
-    "2. If the excerpts DO contain a relevant answer: lead with the answer, then append any scope "
-    "notes or caveats at the end only if the excerpts genuinely limit applicability "
-    "(e.g. the rule applies to a specific location or craft different from what was asked). "
-    "Do not add scope notes for general questions where no limitation exists.\n"
-    "3. If the excerpts contain rules from MULTIPLE different agreements or crafts that address "
-    "the same question, present EACH one separately and clearly labeled by its agreement or craft "
-    "(e.g. 'Under the [Agreement Name]:...'). Do not pick just one — show the complete picture.\n\n"
-    "Respond with ONLY a JSON object in this exact format — no markdown, no code fences:\n"
-    '{"answer": "your full answer here", '
-    '"claims": ["first atomic factual claim.", "second atomic factual claim.", ...]}\n'
-    "Each item in claims must be one distinct, self-contained factual assertion from your answer."
+    "TERM PRESERVATION — Treat every word in the user's question as an exact domain-specific term. "
+    "Never autocorrect, normalize, or reinterpret any word — even if it appears to be a typo. "
+    "A lowercase term and an uppercase term are different identifiers and must be matched literally "
+    "against the excerpts.\n\n"
+    "RULE PRIORITY:\n"
+    "  • If the question does NOT reference a specific rule/section/item number, skip this section.\n"
+    "  • If the question references a specific rule (e.g. 'Rule 6.28', 'GCOR 5.3', 'Item 2', 'Section 11.3'), "
+    "scan the excerpts for that exact rule first.\n"
+    "  • If that rule is present in the excerpts, answer ONLY from it — "
+    "do not pull from other rules even if they seem related.\n"
+    "  • If that exact rule is NOT present in the excerpts, say: "
+    "'Rule [X] was not found in the retrieved excerpts.' "
+    "Do not substitute a different rule as an answer.\n\n"
+    "SUBJECT PRIORITY — MANDATORY. Follow every step in order. Do not skip.\n"
+    "  STEP 0 — Does the question name a specific subject (a role, employee type, or entity such as "
+    "a job class, crew type, or personnel category)? "
+    "If NO specific subject is named, skip this entire section and answer normally.\n"
+    "  STEP 1 — Extract the EXACT subject phrase as written. "
+    "Treat the full phrase as one unit. Do not split, shorten, generalize, or substitute it — "
+    "whatever the user wrote is the term to match.\n"
+    "  STEP 2 — Search the excerpts for that EXACT subject phrase (literal match). "
+    "If found in any excerpt, answer ONLY from those excerpts. Include the subject in your answer: "
+    "'For [exact subject], ...'\n"
+    "  STEP 3 — If the exact subject phrase is NOT found in the excerpts, "
+    "find the closest general rule that covers the topic and answer from it. "
+    "Structure the response as:\n"
+    "    Line 1: One-line direct answer from the general rule.\n"
+    "    Line 2: Verbatim quote of the general rule.\n"
+    "    Line 3: Closing reference line.\n"
+    "    Line 4 (Note): 'Note: This is a general rule and does not explicitly reference [exact subject].'\n"
+    "  STEP 4 — If no excerpt addresses the topic at all (no specific and no general rule), say only: "
+    "'The excerpts do not contain any information on this topic.'\n"
+    "  RULE: Your one-line answer MUST always include the exact subject phrase from the question. "
+    "Never drop it, generalize it, or replace it with a synonym.\n\n"
+    "COMPOUND QUESTIONS — If the question asks about more than one distinct action, condition, or scenario, "
+    "treat each part as a separate question and answer each one independently:\n"
+    "  • Identify every distinct topic in the question.\n"
+    "  • For each topic: if the excerpts contain an answer, provide it with a quote and rule reference.\n"
+    "  • For each topic: if the excerpts contain NO answer, explicitly state: "
+    "'No information found in the excerpts for: [topic].'\n"
+    "  • Never merge parts together or omit a part because it has no answer — "
+    "every part must appear in the response, answered or not.\n\n"
+    "Structure every answer in this exact format:\n"
+    "1. One-line direct answer (Yes / No / It depends + single clarifying clause).\n"
+    "2. Verbatim quote of the controlling rule language (in quotes, no paraphrase).\n"
+    "3. Closing line: \"For additional information, see [rule book abbreviation] [item/rule number], page [page number].\"\n"
+    "4. Note (only if the rule does not specifically address the exact condition or scenario asked about): "
+    "\"Note: This is a general rule and does not specifically address [the exact condition/scenario from the question].\"\n\n"
+    "RULE SELECTION — Before writing any answer, complete this check:\n"
+    "  1. Read the question carefully and identify its SPECIFIC topic "
+    "(e.g. 'trailing tons calculation for long car/short car makeup').\n"
+    "  2. Scan ALL retrieved excerpts and rank them by how directly they address that specific topic.\n"
+    "  3. Select the highest-ranked excerpt. Answer ONLY from that excerpt.\n"
+    "  4. If that excerpt does not explicitly answer the question, say: "
+    "'The retrieved rule covers this topic but does not explicitly answer [the specific question]. "
+    "[Quote the rule]. For additional information, see [reference].'\n"
+    "  CRITICAL: If you find yourself writing a Note that says the rule does not address the question, "
+    "you have selected the wrong excerpt. Stop. Go back to step 2 and select the most topic-specific one. "
+    "A rule that answers a related but different question is ALWAYS wrong, "
+    "even if it produces a confident yes/no response.\n\n"
+    "Do not add \"here's why\", \"reasoning\", \"context\", or \"summary\" sections.\n"
+    "Do not paraphrase the rule in your own words — quote it.\n"
+    "Cite rule/item numbers, never page numbers.\n"
+    "Maximum response length: 150 words unless the rule language itself is longer.\n\n"
+    "Respond with ONLY a JSON object — no markdown, no code fences:\n"
+    "{\"answer\": \"your full answer here\", "
+    "\"claims\": [\"first atomic factual claim.\", \"second atomic factual claim.\", ...]}\n"
+    "Each claim must be one self-contained factual assertion directly traceable to the excerpts."
 )
 
 # ── Cached resources ──────────────────────────────────────────────────────────
@@ -114,13 +163,15 @@ _ROLE_MAP = {
     "assistant": ChatMessageRole.ASSISTANT,
 }
 
-def _chat(model: str, messages: list[dict]) -> str:
+def _chat(model: str, messages: list[dict], temperature: float = 0.0) -> str:
     """Call a Databricks serving endpoint. Auth handled automatically by WorkspaceClient."""
     sdk_messages = [
         ChatMessage(role=_ROLE_MAP[m["role"]], content=m["content"])
         for m in messages
     ]
-    resp = _workspace_client().serving_endpoints.query(name=model, messages=sdk_messages)
+    resp = _workspace_client().serving_endpoints.query(
+        name=model, messages=sdk_messages, temperature=temperature
+    )
     return resp.choices[0].message.content
 
 # ── SQL execution ─────────────────────────────────────────────────────────────
@@ -171,16 +222,15 @@ def _exec_sql(sql: str) -> list[dict]:
 def retrieve(query: str, top_k_docs: int, top_k_chunks: int, selected_guids: tuple = ()) -> list[dict]:
     """Two-stage retrieval:
       1. Score all chunks, pick the top_k_docs documents by their best chunk score.
-      2. Return the top_k_chunks chunks from within those documents only.
-    Single SQL query using a CTE so the dot-product is computed once."""
+      2. Return the top_k_chunks highest-scoring chunks globally from within those documents.
+    No per-doc quota — if one document has 10 great chunks it gets them all."""
     q_vec = _get_embedding(query)
 
-    vec_sql      = "ARRAY(" + ", ".join(str(v) for v in q_vec) + ")"
-    doc_filter   = (
+    vec_sql    = "ARRAY(" + ", ".join(str(v) for v in q_vec) + ")"
+    doc_filter = (
         "AND FILE_GUID IN (" + ", ".join(f"'{g}'" for g in selected_guids) + ")"
         if selected_guids else ""
     )
-    chunks_per_doc = max(1, top_k_chunks // top_k_docs)
     top_chunks = _exec_sql(f"""
             WITH scored AS (
                 SELECT FILE_GUID, CHUNK_IDX, CHUNK_TXT, CHUNK_ROLE, PAGE_NUMS,
@@ -197,23 +247,14 @@ def retrieve(query: str, top_k_docs: int, top_k_chunks: int, selected_guids: tup
                 GROUP BY FILE_GUID
                 ORDER BY MAX(dot_product) DESC
                 LIMIT {top_k_docs}
-            ),
-            per_doc_ranked AS (
-                SELECT s.FILE_GUID, s.CHUNK_IDX, s.CHUNK_TXT, s.CHUNK_ROLE,
-                       s.PAGE_NUMS, s.dot_product,
-                       ROW_NUMBER() OVER (
-                           PARTITION BY s.FILE_GUID
-                           ORDER BY s.dot_product DESC
-                       ) AS doc_rank
-                FROM scored s
-                INNER JOIN top_docs d ON s.FILE_GUID = d.FILE_GUID
             )
-            SELECT p.FILE_GUID, p.CHUNK_IDX, p.CHUNK_TXT, p.CHUNK_ROLE,
-                   p.PAGE_NUMS, p.dot_product, m.FILE_NM
-            FROM per_doc_ranked p
-            INNER JOIN {DOC_METADATA_TABLE} m ON p.FILE_GUID = m.FILE_GUID
-            WHERE p.doc_rank <= {chunks_per_doc}
-            ORDER BY p.dot_product DESC
+            SELECT s.FILE_GUID, s.CHUNK_IDX, s.CHUNK_TXT, s.CHUNK_ROLE,
+                   s.PAGE_NUMS, s.dot_product, m.FILE_NM
+            FROM scored s
+            INNER JOIN top_docs d ON s.FILE_GUID = d.FILE_GUID
+            INNER JOIN {DOC_METADATA_TABLE} m ON s.FILE_GUID = m.FILE_GUID
+            ORDER BY s.dot_product DESC
+            LIMIT {top_k_chunks}
         """)
 
     for r in top_chunks:
@@ -308,15 +349,39 @@ def cite(chunks: list[dict]) -> list[dict]:
 
 # ── Query enhancement ─────────────────────────────────────────────────────────
 
+def _should_enhance(query: str) -> bool:
+    """Return True if the query would benefit from LLM enhancement."""
+    words = query.strip().split()
+    # Very short — too vague for good retrieval without help
+    if len(words) <= 4:
+        return True
+    # Long, detailed question — already specific enough
+    if len(words) >= 18:
+        return False
+    return True
+
+
 def enhance_simple(query: str, domain: str, model: str) -> str:
     """Single LLM-enhanced query for standard RAG."""
     return _chat(model, [
         {
             "role": "system",
             "content": (
-                f"Rewrite the user's query to maximize cosine similarity against {domain} "
-                "document text chunks. Use precise railroad industry terminology. "
-                "Return only the reformulated query, nothing else."
+                f"Rewrite the user's query to improve retrieval of the specific rule or procedure being asked about "
+                f"in {domain} documents. "
+                "CRITICAL RULES:\n"
+                "- Do NOT autocorrect, remove, or alter any word from the original query — "
+                "every word may be a domain-specific term, role, or identifier even if it looks like a typo. "
+                "Preserve all original terms exactly as written.\n"
+                "- Preserve the exact subject, role, or entity the user specified "
+                "(e.g. 'employee', 'operator', 'supervisor'). Do not substitute, generalize, "
+                "or rephrase it (e.g. do not change 'employee' to 'individual' or 'worker').\n"
+                "- Preserve the exact action, procedure, or scenario the user asked about. "
+                "Do not substitute or expand into different but related procedures.\n"
+                "- Only add terminology that more precisely describes what is already in the question.\n"
+                "- Do not introduce adjacent safety topics, protection methods, or procedures "
+                "that were not part of the original question.\n"
+                "Return only the rewritten query, nothing else."
             ),
         },
         {"role": "user", "content": query},
@@ -328,11 +393,20 @@ def enhance_rrf(query: str, domain: str, model: str) -> list[str]:
         {
             "role": "system",
             "content": (
-                f"Generate 5 distinct reformulations of the user's query using different "
-                f"railroad industry terminology, phrasing, and perspectives. Each should "
-                f"target the same underlying information need but use vocabulary likely to "
-                f"appear in {domain} documents. Vary the phrasing significantly across the "
-                f"5 queries to maximize vocabulary coverage. "
+                f"Generate 5 distinct reformulations of the user's query to improve retrieval "
+                f"of the specific rule or procedure being asked about in {domain} documents. "
+                "CRITICAL RULES:\n"
+                "- Do NOT autocorrect, remove, or alter any word from the original query — "
+                "every word may be a domain-specific term, role, or identifier even if it looks like a typo. "
+                "Preserve all original terms exactly as written.\n"
+                "- Preserve the exact subject, role, or entity the user specified "
+                "(e.g. 'employee', 'operator', 'supervisor'). Do not substitute, generalize, "
+                "or rephrase it (e.g. do not change 'employee' to 'individual' or 'worker').\n"
+                "- Every reformulation must target the SAME specific action, procedure, or scenario. "
+                "Do not substitute or drift into different but related procedures.\n"
+                "- Vary only the phrasing and terminology — not the subject matter.\n"
+                "- Do not introduce adjacent safety topics, protection methods, or procedures "
+                "that were not part of the original question.\n"
                 f'Respond with ONLY a JSON object: {{"queries": ["...", "...", "...", "...", "..."]}}'
             ),
         },
@@ -363,20 +437,31 @@ def _context_block(chunks: list[dict]) -> str:
     parts = []
     for c in chunks:
         label = c.get("file_nm") or c["source_key"]
-        block = f"[{label}]\n{c['chunk_txt']}"
+        pages = c.get("page_nums") or []
+        pages_str = f" | Pages: {', '.join(str(p) for p in pages)}" if pages else ""
+        block = f"[{label}{pages_str}]\n{c['chunk_txt']}"
         if c.get("fig_descs"):
             block += f"\n[Figures on this page: {c['fig_descs']}]"
         parts.append(block)
     return "\n\n---\n\n".join(parts)
 
-def synthesize(query: str, chunks: list[dict], dialog: list[dict], model: str) -> tuple[str, list[str]]:
+def synthesize(query: str, chunks: list[dict], dialog: list[dict], model: str, temperature: float = 0.0) -> tuple[str, list[str]]:
     """Returns (answer, claims) where claims are atomic factual assertions for metric scoring."""
     context = _context_block(chunks)
     raw = _chat(model, [
-        {"role": "system", "content": f"{SYNTHESIS_SYSTEM_PROMPT}\n\n--- DOCUMENT EXCERPTS ---\n{context}"},
+        #System instruction only
+        {"role": "system", "content": SYNTHESIS_SYSTEM_PROMPT},
+        #Prior conversation history
         *[{"role": m["role"], "content": m["content"]} for m in dialog],
-        {"role": "user", "content": query},
-    ])
+        #User turn: excerpts + question together
+        {
+            "role": "user",
+            "content":(
+                f"--- DOCUMENT EXCERPTS ---\n{context}"
+                f"\n\n--- Quiestion --\n{query}"
+            ),
+        },
+    ], temperature=temperature)
     match = re.search(r'\{.*\}', raw, re.DOTALL)
     try:
         parsed = json.loads(match.group() if match else raw)
@@ -496,6 +581,7 @@ def run_pipeline(
     use_rrf:        bool,
     dialog:         list[dict],
     llm_model:      str,
+    temperature:    float = 0.0,
     selected_guids: tuple = (),
 ) -> tuple[str, list[dict], list[str], list[dict]]:
     domain = dataset_cfg["domain"]
@@ -507,6 +593,8 @@ def run_pipeline(
         if use_rrf:
             with st.spinner("Generating 5 query expansions…"):
                 st.session_state[enhance_key] = enhance_rrf(query, domain, llm_model)
+        elif not _should_enhance(query):
+            st.session_state[enhance_key] = [query]
         else:
             with st.spinner("Enhancing query…"):
                 st.session_state[enhance_key] = [enhance_simple(query, domain, llm_model)]
@@ -537,7 +625,12 @@ def run_pipeline(
     # Step 2.5 — show retrieved chunks
     with st.expander(f"◈ {len(chunks)} retrieved chunks", expanded=False):
         for i, c in enumerate(chunks, 1):
-            st.markdown(f"**{i}. `{c.get('chunk_role', 'body')}`**")
+            pages_str = ", ".join(str(p) for p in (c.get("page_nums") or []))
+            source = c.get("file_nm") or c["source_key"]
+            st.markdown(
+                f"**{i}. `{c.get('chunk_role', 'body')}`** · "
+                f"📄 {source}" + (f" · p. {pages_str}" if pages_str else "")
+            )
             st.markdown(c["chunk_txt"])
             if c.get("fig_descs"):
                 st.caption(f"Figures: {c['fig_descs']}")
@@ -546,7 +639,7 @@ def run_pipeline(
 
     # Step 3 — synthesize
     with st.spinner("Generating response…"):
-        raw_response, claims = synthesize(query, chunks, dialog, llm_model)
+        raw_response, claims = synthesize(query, chunks, dialog, llm_model, temperature)
 
     # Step 4 — cite deterministically from all retrieved chunks
     cite_rows = cite(chunks)
@@ -577,7 +670,12 @@ def render_chunks(chunks: list[dict]) -> None:
         return
     with st.expander(f"◈ {len(chunks)} retrieved chunks"):
         for i, c in enumerate(chunks, 1):
-            st.markdown(f"**{i}. `{c.get('chunk_role', 'body')}`**")
+            pages_str = ", ".join(str(p) for p in (c.get("page_nums") or []))
+            source = c.get("file_nm") or c["source_key"]
+            st.markdown(
+                f"**{i}. `{c.get('chunk_role', 'body')}`** · "
+                f"📄 {source}" + (f" · p. {pages_str}" if pages_str else "")
+            )
             st.markdown(c["chunk_txt"])
             if c.get("fig_descs"):
                 st.caption(f"Figures: {c['fig_descs']}")
@@ -1016,6 +1114,8 @@ def main():
         with st.expander("Settings"):
             top_k_docs   = st.slider("Documents to search", min_value=1, max_value=10, value=5)
             top_k_chunks = st.slider("Chunks to return",    min_value=1, max_value=25, value=15)
+            temperature  = st.slider("Temperature", min_value=0.0, max_value=1.0, value=0.0, step=0.1,
+                                     help="0 = deterministic & focused. Higher = more varied responses.")
 
         st.divider()
         if st.button("Clear conversation", use_container_width=True):
@@ -1070,6 +1170,7 @@ def main():
                     use_rrf=use_rrf,
                     dialog=dialog_history,
                     llm_model=llm_model,
+                    temperature=temperature,
                 )
                 st.markdown(response)
                 badge = "◆ Enhanced (RRF)" if use_rrf else "◇ Standard"
